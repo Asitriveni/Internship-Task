@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Team Task Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2, h3 {
+      text-align: center;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      margin: 0.5rem 0;
+      padding: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .task {
+      padding: 1rem;
+      border-bottom: 1px solid #ddd;
+    }
+    .task.completed {
+      background: #e6ffe6;
+      text-decoration: line-through;
+    }
+    .task.inprogress {
+      background: #fffbe6;
+    }
+    .task.pending {
+      background: #ffe6e6;
+    }
+    .actions button {
+      margin-right: 0.5rem;
+    }
+    .login {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Team Task Manager</h2>
+    <div class="login">
+      <input id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="signup()">Sign Up</button>
+      <button onclick="login()">Login</button>
+    </div>
+
+    <div id="app" style="display:none;">
+      <h3>Welcome, <span id="userDisplay"></span></h3>
+      <input id="title" placeholder="Task Title" />
+      <textarea id="description" placeholder="Task Description"></textarea>
+      <input type="date" id="dueDate" />
+      <select id="assignee"></select>
+      <button onclick="addTask()">Assign Task</button>
+
+      <div id="tasks"></div>
+    </div>
+  </div>
+
+  <script>
+    let tasks = JSON.parse(localStorage.getItem("teamTasks")) || [];
+    let users = JSON.parse(localStorage.getItem("users")) || {};
+    let currentUser = localStorage.getItem("currentUser") || "";
+
+    function signup() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!username || !password) {
+        alert("Please enter both username and password");
+        return;
+      }
+
+      if (users[username]) {
+        alert("User already exists. Please login.");
+        return;
+      }
+
+      users[username] = password;
+      localStorage.setItem("users", JSON.stringify(users));
+      alert("Signup successful. Now login.");
+    }
+
+    function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (users[username] === password) {
+        currentUser = username;
+        localStorage.setItem("currentUser", currentUser);
+        document.getElementById("userDisplay").textContent = currentUser;
+        document.querySelector(".login").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        renderAssignees();
+        renderTasks();
+      } else {
+        alert("Invalid username or password.");
+      }
+    }
+
+    function renderAssignees() {
+      const assignee = document.getElementById("assignee");
+      assignee.innerHTML = Object.keys(users)
+        .map((user) =>`<option value="${user}">${user}</option>`)
+        .join("");
+    }
+
+    function saveTasks() {
+      localStorage.setItem("teamTasks", JSON.stringify(tasks));
+    }
+
+    function addTask() {
+      const title = document.getElementById("title").value;
+      const description = document.getElementById("description").value;
+      const dueDate = document.getElementById("dueDate").value;
+      const assignee = document.getElementById("assignee").value;
+
+      if (!title || !dueDate || !assignee) {
+        alert("Fill all fields");
+        return;
+      }
+
+      tasks.push({ title, description, dueDate, assignee, status: "pending" });
+      saveTasks();
+      renderTasks();
+
+      document.getElementById("title").value = "";
+      document.getElementById("description").value = "";
+      document.getElementById("dueDate").value = "";
+    }
+
+    function renderTasks() {
+      const container = document.getElementById("tasks");
+      container.innerHTML = "";
+      const today = new Date().toISOString().split("T")[0];
+
+      tasks.forEach((task, index) => {
+        const taskDiv = document.createElement("div");
+        taskDiv.className = `task ${task.status}`;
+        taskDiv.innerHTML = `
+          <strong>${task.title}</strong> (Due: ${task.dueDate})<br />
+          <small>Assigned to: ${task.assignee}</small>
+          <p>${task.description}</p>
+          <div class="actions">
+            <select onchange="updateStatus(${index}, this.value)">
+              <option value="pending" ${task.status === "pending" ? "selected" : ""}>Pending</option>
+              <option value="inprogress" ${task.status === "inprogress" ? "selected" : ""}>In Progress</option>
+              <option value="completed" ${task.status === "completed" ? "selected" : ""}>Completed</option>
+            </select>
+            <button onclick="deleteTask(${index})">Delete</button>
+          </div>
+        `;
+        if (task.dueDate === today && task.assignee === currentUser && task.status !== "completed") {
+          alert(`Reminder: Task '${task.title}' is due today!`);
+        }
+        container.appendChild(taskDiv);
+      });
+    }
+
+    function updateStatus(index, newStatus) {
+      tasks[index].status = newStatus;
+      saveTasks();
+      renderTasks();
+    }
+
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    window.onload = function () {
+      if (currentUser && users[currentUser]) {
+        document.getElementById("userDisplay").textContent = currentUser;
+        document.querySelector(".login").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        renderAssignees();
+        renderTasks();
+      }
+    };
+  </script>
+</body>
+</html>
